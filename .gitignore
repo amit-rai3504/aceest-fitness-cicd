@@ -11,3 +11,4 @@ sonar-report/
 *.iml
 .idea/
 .DS_Store
+jenkins_home/
