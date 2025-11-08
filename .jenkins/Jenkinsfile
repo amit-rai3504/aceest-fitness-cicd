@@ -66,15 +66,17 @@ pipeline {
     }
 
     stage('Run Container (Verification)') {
-      steps {
-        sh """
-          docker run -d -p 5000:5000 --name aceest-test ${DOCKER_REPO}:${IMAGE_TAG}
-          sleep 5
-          curl -f http://localhost:5000/health
-          docker stop aceest-test && docker rm aceest-test
-        """
-      }
+        steps {
+            sh '''
+            docker rm -f aceest-test || true
+            docker run -d -p 5000:5000 --name aceest-test ${DOCKER_REPO}:${IMAGE_TAG}
+            sleep 5
+            curl -f http://localhost:5000/health
+            docker stop aceest-test && docker rm aceest-test
+            '''
+        }
     }
+
   }
 
   post {
