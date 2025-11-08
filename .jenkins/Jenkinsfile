@@ -49,17 +49,19 @@ pipeline {
                 WORKSPACE_PATH=$(pwd)
                 echo "Sonar working directory: $WORKSPACE_PATH"
 
-                # Run SonarScanner container and copy workspace into it
+                echo "Creating SonarScanner container..."
                 CONTAINER_ID=$(docker create --network cicd-net \
                 -e SONAR_HOST_URL=$SONAR_HOST_URL \
                 -e SONAR_TOKEN=$SONAR_AUTH_TOKEN \
-                sonarsource/sonar-scanner-cli:latest)
+                sonarsource/sonar-scanner-cli:latest sleep 60)
 
                 echo "Copying workspace into scanner container..."
                 docker cp $WORKSPACE_PATH/. $CONTAINER_ID:/usr/src/
 
-                echo "Starting scan..."
-                docker start -a $CONTAINER_ID sh -c "
+                echo "Starting scan inside container..."
+                docker start $CONTAINER_ID > /dev/null
+
+                docker exec -t $CONTAINER_ID sh -c "
                 cd /usr/src &&
                 ls -R &&
                 sonar-scanner \
@@ -70,12 +72,12 @@ pipeline {
                     -Dsonar.python.coverage.reportPaths=coverage.xml
                 "
 
+                echo "Cleaning up scanner container..."
                 docker rm -f $CONTAINER_ID || true
             '''
             }
         }
     }
-
 
 
 
