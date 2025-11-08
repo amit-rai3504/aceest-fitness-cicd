@@ -46,22 +46,26 @@ pipeline {
         steps {
             withSonarQubeEnv('sonarqube') {
             sh '''
+                WORKSPACE_PATH=$(pwd)
+                echo "Sonar working directory: $WORKSPACE_PATH"
                 docker run --rm \
                 --network cicd-net \
-                -v $(pwd):/usr/src \
+                -v $WORKSPACE_PATH:/usr/src \
                 -w /usr/src \
                 -e SONAR_HOST_URL=$SONAR_HOST_URL \
                 -e SONAR_TOKEN=$SONAR_AUTH_TOKEN \
                 sonarsource/sonar-scanner-cli:latest \
+                -Dproject.settings=/usr/src/sonar-project.properties \
                 -Dsonar.projectKey=aceest-fitness \
                 -Dsonar.sources=app \
-                -Dsonar.tests=/usr/src/tests \
+                -Dsonar.tests=tests \
                 -Dsonar.python.version=3.11 \
-                -Dsonar.python.coverage.reportPaths=/usr/src/coverage.xml
+                -Dsonar.python.coverage.reportPaths=coverage.xml
             '''
             }
         }
     }
+
 
 
 
