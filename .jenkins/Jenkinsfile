@@ -69,21 +69,18 @@ pipeline {
         steps {
             sh '''
             docker rm -f aceest-test || true
-            docker run -d -p 5050:5000 --name aceest-test ${DOCKER_REPO}:${IMAGE_TAG}
+            docker run -d --network cicd-net -p 5050:5000 --name aceest-test ${DOCKER_REPO}:${IMAGE_TAG}
 
             echo "Waiting for container to start..."
-            sleep 10
+            sleep 15
 
-            CONTAINER_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' aceest-test)
-            echo "Container IP: $CONTAINER_IP"
-
-            # Try both container IP and host port for reliability
-            curl -f http://$CONTAINER_IP:5000/health || curl -f http://localhost:5050/health
+            curl -f http://aceest-test:5000/health || curl -f http://localhost:5050/health
 
             docker stop aceest-test && docker rm aceest-test
             '''
         }
     }
+
 
 
   }
