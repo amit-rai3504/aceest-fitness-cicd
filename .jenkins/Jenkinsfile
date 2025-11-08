@@ -53,17 +53,18 @@ pipeline {
                 CONTAINER_ID=$(docker create --network cicd-net \
                 -e SONAR_HOST_URL=$SONAR_HOST_URL \
                 -e SONAR_TOKEN=$SONAR_AUTH_TOKEN \
-                sonarsource/sonar-scanner-cli:latest sleep 60)
+                sonarsource/sonar-scanner-cli:latest sleep 120)
 
                 echo "Copying workspace into scanner container..."
                 docker cp $WORKSPACE_PATH/. $CONTAINER_ID:/usr/src/
 
-                echo "Starting scan inside container..."
+                echo "Fixing permissions..."
                 docker start $CONTAINER_ID > /dev/null
+                docker exec -u 0 $CONTAINER_ID chmod -R 777 /usr/src
 
+                echo "Starting scan inside container..."
                 docker exec -t $CONTAINER_ID sh -c "
                 cd /usr/src &&
-                ls -R &&
                 sonar-scanner \
                     -Dsonar.projectKey=aceest-fitness \
                     -Dsonar.sources=app \
@@ -78,6 +79,7 @@ pipeline {
             }
         }
     }
+
 
 
 
