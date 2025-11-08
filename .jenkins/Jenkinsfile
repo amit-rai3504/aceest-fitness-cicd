@@ -49,18 +49,20 @@ pipeline {
                 docker run --rm \
                 --network cicd-net \
                 -v $(pwd):/usr/src \
+                -w /usr/src \
                 -e SONAR_HOST_URL=$SONAR_HOST_URL \
                 -e SONAR_TOKEN=$SONAR_AUTH_TOKEN \
                 sonarsource/sonar-scanner-cli:latest \
                 -Dsonar.projectKey=aceest-fitness \
                 -Dsonar.sources=app \
-                -Dsonar.tests=tests \
+                -Dsonar.tests=/usr/src/tests \
                 -Dsonar.python.version=3.11 \
-                -Dsonar.python.coverage.reportPaths=coverage.xml
+                -Dsonar.python.coverage.reportPaths=/usr/src/coverage.xml
             '''
             }
         }
     }
+
 
 
 
