@@ -30,7 +30,7 @@ pipeline {
       steps {
         sh '''
           . .venv/bin/activate
-          pytest -q --cov=app --cov-report=xml
+          pytest -q --cov=app --cov-report=xml --junitxml=pytest.xml
         '''
       }
       post {
