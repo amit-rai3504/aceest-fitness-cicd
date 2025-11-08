@@ -2,16 +2,14 @@ pipeline {
   agent any
 
   environment {
-    DOCKERHUB_USER = credentials('dockerhub-username')
-    DOCKERHUB_PASS = credentials('dockerhub-password')
-    DOCKER_REPO    = "aceest-fitness"
-    IMAGE_TAG      = "${env.BUILD_NUMBER}"
-    SONAR_HOST_URL = "http://<SONARQUBE_URL>"
+    DOCKER_REPO = "aceest-fitness"
+    IMAGE_TAG   = "${env.BUILD_NUMBER}"
+    SONAR_HOST_URL = "http://sonarqube:9000"
     SONAR_TOKEN    = credentials('sonarqube-token')
-    KUBECONFIG_CRED = credentials('kubeconfig-file') // Jenkins File credential
   }
 
   stages {
+
     stage('Checkout') {
       steps {
         checkout scm
@@ -28,7 +26,7 @@ pipeline {
       }
     }
 
-    stage('Unit tests') {
+    stage('Unit Tests') {
       steps {
         sh '''
           . .venv/bin/activate
@@ -37,12 +35,12 @@ pipeline {
       }
       post {
         always {
-          junit 'pytest.xml' // if you generate it; optional
+          junit 'pytest.xml'
         }
       }
     }
 
-    stage('SonarQube') {
+    stage('SonarQube Analysis') {
       steps {
         withSonarQubeEnv('sonarqube') {
           sh """
@@ -50,6 +48,8 @@ pipeline {
               -Dsonar.projectKey=aceest-fitness \
               -Dsonar.sources=app \
               -Dsonar.tests=tests \
+              -Dsonar.host.url=${SONAR_HOST_URL} \
+              -Dsonar.login=${SONAR_TOKEN} \
               -Dsonar.python.version=3.11 \
               -Dsonar.python.coverage.reportPaths=coverage.xml
           """
@@ -57,35 +57,21 @@ pipeline {
       }
     }
 
-    stage('Build Image') {
+    stage('Build Docker Image') {
       steps {
         sh """
-          docker login -u ${DOCKERHUB_USER} -p ${DOCKERHUB_PASS}
-          docker build -t ${DOCKERHUB_USER}/${DOCKER_REPO}:${IMAGE_TAG} .
-          docker tag ${DOCKERHUB_USER}/${DOCKER_REPO}:${IMAGE_TAG} ${DOCKERHUB_USER}/${DOCKER_REPO}:latest
+          docker build -t ${DOCKER_REPO}:${IMAGE_TAG} .
         """
       }
     }
 
-    stage('Push Image') {
+    stage('Run Container (Verification)') {
       steps {
         sh """
-          docker push ${DOCKERHUB_USER}/${DOCKER_REPO}:${IMAGE_TAG}
-          docker push ${DOCKERHUB_USER}/${DOCKER_REPO}:latest
-        """
-      }
-    }
-
-    stage('Deploy (Blue/Green Example)') {
-      steps {
-        writeFile file: 'kubeconfig', text: "${KUBECONFIG_CRED}"
-        sh """
-          export KUBECONFIG=$PWD/kubeconfig
-          sed -i "s/DOCKERHUB_USER\\/${DOCKER_REPO}:BLUE_TAG/${DOCKERHUB_USER}\\/${DOCKER_REPO}:${IMAGE_TAG}/" k8s/deploy-blue.yaml
-          kubectl apply -f k8s/namespace.yaml
-          kubectl apply -f k8s/service.yaml
-          kubectl apply -f k8s/deploy-blue.yaml
-          kubectl rollout status deploy/aceest-blue -n aceest
+          docker run -d -p 5000:5000 --name aceest-test ${DOCKER_REPO}:${IMAGE_TAG}
+          sleep 5
+          curl -f http://localhost:5000/health
+          docker stop aceest-test && docker rm aceest-test
         """
       }
     }
@@ -93,10 +79,11 @@ pipeline {
 
   post {
     success {
-      echo "Build ${env.BUILD_NUMBER} deployed."
+      echo "✅ Build ${env.BUILD_NUMBER} completed successfully!"
     }
     failure {
-      echo "Build failed; consider rollback to previous image."
+      echo "❌ Build failed. Check logs for details."
     }
   }
 }
+
