@@ -12,3 +12,6 @@ sonar-report/
 .idea/
 .DS_Store
 jenkins_home/
+sonarqube_data/
+sonarqube_logs/
+sonarqube_extensions/
