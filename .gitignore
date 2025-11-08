@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+dist/
+build/
+.coverage
+htmlcov/
+.pytest_cache/
+sonar-report/
+*.iml
+.idea/
