@@ -49,26 +49,33 @@ pipeline {
                 WORKSPACE_PATH=$(pwd)
                 echo "Sonar working directory: $WORKSPACE_PATH"
 
-                echo "Listing contents inside workspace before scanner:"
-                ls -R $WORKSPACE_PATH
-
-                docker run --rm \
-                --network cicd-net \
-                -v $WORKSPACE_PATH:/usr/src \
-                -w /usr/src \
+                # Run SonarScanner container and copy workspace into it
+                CONTAINER_ID=$(docker create --network cicd-net \
                 -e SONAR_HOST_URL=$SONAR_HOST_URL \
                 -e SONAR_TOKEN=$SONAR_AUTH_TOKEN \
-                sonarsource/sonar-scanner-cli:latest \
-                sh -c "echo 'Inside SonarScanner container:' && ls -R /usr/src && sonar-scanner \
+                sonarsource/sonar-scanner-cli:latest)
+
+                echo "Copying workspace into scanner container..."
+                docker cp $WORKSPACE_PATH/. $CONTAINER_ID:/usr/src/
+
+                echo "Starting scan..."
+                docker start -a $CONTAINER_ID sh -c "
+                cd /usr/src &&
+                ls -R &&
+                sonar-scanner \
                     -Dsonar.projectKey=aceest-fitness \
                     -Dsonar.sources=app \
-                    -Dsonar.tests=/usr/src/tests \
+                    -Dsonar.tests=tests \
                     -Dsonar.python.version=3.11 \
-                    -Dsonar.python.coverage.reportPaths=/usr/src/coverage.xml"
+                    -Dsonar.python.coverage.reportPaths=coverage.xml
+                "
+
+                docker rm -f $CONTAINER_ID || true
             '''
             }
         }
     }
+
 
 
 
