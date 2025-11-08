@@ -40,22 +40,28 @@ pipeline {
       }
     }
 
+    
+    
     stage('SonarQube Analysis') {
-      steps {
-        withSonarQubeEnv('sonarqube') {
-          sh '''
-            sonar-scanner \
-              -Dsonar.projectKey=aceest-fitness \
-              -Dsonar.sources=app \
-              -Dsonar.tests=tests \
-              -Dsonar.host.url=${SONAR_HOST_URL} \
-              -Dsonar.login=${SONAR_TOKEN} \
-              -Dsonar.python.version=3.11 \
-              -Dsonar.python.coverage.reportPaths=coverage.xml
-          '''
+        steps {
+            withSonarQubeEnv('sonarqube') {
+            sh '''
+                docker run --rm \
+                --network cicd-net \
+                -v $(pwd):/usr/src \
+                -e SONAR_HOST_URL=$SONAR_HOST_URL \
+                -e SONAR_LOGIN=$SONAR_AUTH_TOKEN \
+                sonarsource/sonar-scanner-cli:latest \
+                -Dsonar.projectKey=aceest-fitness \
+                -Dsonar.sources=app \
+                -Dsonar.tests=tests \
+                -Dsonar.python.version=3.11 \
+                -Dsonar.python.coverage.reportPaths=coverage.xml
+            '''
+            }
         }
-      }
     }
+
 
     stage('Build Docker Image') {
       steps {
