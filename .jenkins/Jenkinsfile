@@ -1,0 +1,102 @@
+pipeline {
+  agent any
+
+  environment {
+    DOCKERHUB_USER = credentials('dockerhub-username')
+    DOCKERHUB_PASS = credentials('dockerhub-password')
+    DOCKER_REPO    = "aceest-fitness"
+    IMAGE_TAG      = "${env.BUILD_NUMBER}"
+    SONAR_HOST_URL = "http://<SONARQUBE_URL>"
+    SONAR_TOKEN    = credentials('sonarqube-token')
+    KUBECONFIG_CRED = credentials('kubeconfig-file') // Jenkins File credential
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Setup Python') {
+      steps {
+        sh '''
+          python3 -m venv .venv
+          . .venv/bin/activate
+          pip install -r requirements.txt
+        '''
+      }
+    }
+
+    stage('Unit tests') {
+      steps {
+        sh '''
+          . .venv/bin/activate
+          pytest -q --cov=app --cov-report=xml
+        '''
+      }
+      post {
+        always {
+          junit 'pytest.xml' // if you generate it; optional
+        }
+      }
+    }
+
+    stage('SonarQube') {
+      steps {
+        withSonarQubeEnv('sonarqube') {
+          sh """
+            sonar-scanner \
+              -Dsonar.projectKey=aceest-fitness \
+              -Dsonar.sources=app \
+              -Dsonar.tests=tests \
+              -Dsonar.python.version=3.11 \
+              -Dsonar.python.coverage.reportPaths=coverage.xml
+          """
+        }
+      }
+    }
+
+    stage('Build Image') {
+      steps {
+        sh """
+          docker login -u ${DOCKERHUB_USER} -p ${DOCKERHUB_PASS}
+          docker build -t ${DOCKERHUB_USER}/${DOCKER_REPO}:${IMAGE_TAG} .
+          docker tag ${DOCKERHUB_USER}/${DOCKER_REPO}:${IMAGE_TAG} ${DOCKERHUB_USER}/${DOCKER_REPO}:latest
+        """
+      }
+    }
+
+    stage('Push Image') {
+      steps {
+        sh """
+          docker push ${DOCKERHUB_USER}/${DOCKER_REPO}:${IMAGE_TAG}
+          docker push ${DOCKERHUB_USER}/${DOCKER_REPO}:latest
+        """
+      }
+    }
+
+    stage('Deploy (Blue/Green Example)') {
+      steps {
+        writeFile file: 'kubeconfig', text: "${KUBECONFIG_CRED}"
+        sh """
+          export KUBECONFIG=$PWD/kubeconfig
+          sed -i "s/DOCKERHUB_USER\\/${DOCKER_REPO}:BLUE_TAG/${DOCKERHUB_USER}\\/${DOCKER_REPO}:${IMAGE_TAG}/" k8s/deploy-blue.yaml
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/service.yaml
+          kubectl apply -f k8s/deploy-blue.yaml
+          kubectl rollout status deploy/aceest-blue -n aceest
+        """
+      }
+    }
+  }
+
+  post {
+    success {
+      echo "Build ${env.BUILD_NUMBER} deployed."
+    }
+    failure {
+      echo "Build failed; consider rollback to previous image."
+    }
+  }
+}

@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aceest-ab
+  namespace: aceest
+  annotations:
+    nginx.ingress.kubernetes.io/canary: "true"
+    nginx.ingress.kubernetes.io/canary-by-header: "X-AB-GROUP"
+    nginx.ingress.kubernetes.io/canary-by-header-value: "B"
+spec:
+  rules:
+    - host: aceest.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: aceest-svc        # stable (group A)
+                port:
+                  number: 80
+

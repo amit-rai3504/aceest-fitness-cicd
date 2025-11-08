@@ -10,4 +10,5 @@ RUN pip install --no-compile -r requirements.txt
 
 COPY app ./app
 EXPOSE 5000
-CMD ["gunicorn", "--bind=0.0.0.0:5000", "app:app", "--chdir", "app", "--workers=2"]
+CMD ["gunicorn", "--bind=0.0.0.0:5000", "app.__main__:app", "--workers=2"]
+
