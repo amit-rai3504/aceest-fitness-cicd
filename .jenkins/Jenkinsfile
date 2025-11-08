@@ -47,10 +47,11 @@ pipeline {
             withSonarQubeEnv('sonarqube') {
             sh '''
                 docker run --rm \
+                --platform linux/arm64 \
                 --network cicd-net \
                 -v $(pwd):/usr/src \
                 -e SONAR_HOST_URL=$SONAR_HOST_URL \
-                -e SONAR_LOGIN=$SONAR_AUTH_TOKEN \
+                -e SONAR_TOKEN=$SONAR_AUTH_TOKEN \
                 sonarsource/sonar-scanner-cli:latest \
                 -Dsonar.projectKey=aceest-fitness \
                 -Dsonar.sources=app \
@@ -61,6 +62,7 @@ pipeline {
             }
         }
     }
+
 
 
     stage('Build Docker Image') {
